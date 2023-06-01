@@ -1,87 +1,42 @@
 ;===========================================
-;           HobbyOS Boot Sector
+;           HobbyOS
 ;
 ;           Author: Madhu Sudhanan
 ;           Date  : May 25, 2023
 ;============================================
 
-[org 0x7c00]    ; tell assembler memory location a which this code is loaded by BIOS so it can offset other addresses
+[org 0x7c00]                ; tell assembler memory location a which this code is loaded by BIOS so it can offset other addresses
 
-mov ah, 0x0e    ; set higher bytes of ax reg to 0x0e to indicate BIOS routine type to scrolling teletype routine (BIOS routine that prints to screen)
-
-mov bx, boot_msg    ;mov starting addr of boot_msg
+mov bx, boot_msg            ; mov starting addr of boot_msg
 call print_string
-mov dx, 0xabcd
+
+mov [boot_drive], dl        ; BIOS stores out boot drive into dl
+mov bp, 0x8000
+mov sp, bp
+
+; mov bx, 0x0000
+; mov es, bx
+mov dl, [boot_drive]        
+mov dh, 2                   ; Read 2 sectors
+mov bx, 0x9000              ; Load the read sectores into address es:bx (segment addressing)
+call load_disk
+
+mov dx, [0x9000]
 call print_hex
-; call print_string
-jmp infi
+
+jmp $                       ; jump indefinitely ($ -> current address)
+
+%include "./lib16/print_lib.asm"
+%include "load_disk.asm"
 
 boot_msg:
     db 'Booting HobbyOS',0  ; null terminated string
 
-hex_template:
-    db '0x0000',0
+boot_drive: db 0
 
-print_string:
-    pusha
-    mov ah, 0x0e
-    loop_through_stirng:
-        mov al, [bx]    ; mov value at addr [bx], such as 'B' of boot_msg
-        int 0x10
-        add bx, 1       ; advance to next char addr
-        cmp al, 0       ; if 0, we have reached end of string
-        jnz loop_through_stirng
-    popa
-    ret
-    
-print_hex:
-    pusha
-    mov ax, dx  ; mov hex value to ax for manipulation
-    mov bx, 0xf000  ; mov initial mask (we want to extraxt first 4-bits of hex value)
-    mov cl, 12      ; shift amount
-    mov dx, hex_template    ;store starting byte address of hex_template to later manipulate it
-    add dx, 2               ; skip '0x' text
-    loop_through_hex:
-        push ax     ; save reg values before using them for other purpose below
-        push bx
+times 510 - ($ - $$) db 0   ; padding with 0 since we need total of 512 bytes in a boot sector
 
-        and ax, bx
-        shr ax, cl
-        push ax
-        mov bl, 10
-        div bl
-        mov al, ah
-        mov ah, 0x0e
-        pop bx
-        cmp bx, 0x09        ; check if bx is less than or equal to 9
-        jle digits
-        add al, 'a'         ; if alphabet, add base ascii code
-        jmp continue
-        digits:
-            add al, '0'     ; if digit, add base ascii code
-        continue:
-            mov bx, dx
-        mov [bx], al
-        inc dx
+dw 0xaa55                   ; magic number to indicate BIOS that this is the boot sector
 
-        ;restore original reg values
-        pop bx          ;always pop first to the reg that was pushed last since it is a stack
-        pop ax
-        shr bx, 4
-        sub cl, 4
-        cmp bx, 0x0     ;if mask is 0 then we are done with all hex digits
-        jnz loop_through_hex
-    mov bx, hex_template
-    call print_string
-    popa
-    ret
-
-    
-
-
-infi:
-    jmp $          ; jump indefinitely ($ -> current address)
-
-times 510 - ($ - $$) db 0   ;padding with 0 since we need total of 512 bytes in a boot sector
-
-dw 0xaa55       ; magic number to indicate BIOS that this is the boot sector
+times 256 dw 0xabcd         ; sector 2 (512 bytes)
+times 256 dw 0x1f34         ; sector 3
