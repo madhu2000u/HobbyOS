@@ -22,9 +22,9 @@ call load_kernel
 
 call switch_to_pm
 
-%include "./lib16/print_lib.asm"
-%include "load_disk.asm"
-%include "gdt.asm"
+%include "boot/lib16/print_lib.asm"
+%include "boot/load_disk.asm"
+%include "boot/gdt.asm"
 
 load_kernel:
     mov bx, KERNEL_OFFSET
@@ -59,7 +59,6 @@ setup_pm:
 
 start_pm:
     mov ebx, MSG_PROT_MODE
-    call print_string_pm
     call KERNEL_OFFSET
     jmp $
 

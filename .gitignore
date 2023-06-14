@@ -1,6 +1,4 @@
 *.txt
 boot/*.bin
-tests/*.bin
-kernel/*.bin
-kernel/*.o
-kernel/os-image
+build
+tests/
